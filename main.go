@@ -21,8 +21,6 @@ import (
 	"gioui.org/font/gofont"
 	"gioui.org/widget/material"
 
-	flayout "eliasnaur.com/giox/layout"
-
 	"golang.org/x/exp/shiny/materialdesign/icons"
 )
 
@@ -164,70 +162,78 @@ var (
 )
 
 func render(gtx *layout.Context, theme *material.Theme, kk map[string]int) {
-	flayout.Format(gtx, "vflex(r(_), r(_))",
-		func() {
+	layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func() {
 			title.Layout(gtx)
-		},
+		}),
 
-		func() {
-			flayout.Format(gtx, "hflex(end, r(_), r(_), r(_))", func() {
-                                hpress := -1
+		layout.Rigid(func() {
+			layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
+				layout.Rigid(func() {
+					hpress := -1
 
-				blist.Layout(gtx, 7, func(i int) {
-					h := 6 - i
+					blist.Layout(gtx, 7, func(i int) {
+						h := 6 - i
 
-					if harmonics[h].Pressed(gtx) {
-                                                hpress = h
-                                        }
-                                        
-					layout.UniformInset(unit.Dp(5)).Layout(gtx, func() {
-						gtx.Constraints.Width.Min = 200
-						gtx.Constraints.Height.Min = 60
+						if harmonics[h].Pressed(gtx) {
+							hpress = h
+						}
 
-						theme.Button(hnames[i]).Layout(gtx, &harmonics[h])
+						layout.UniformInset(unit.Dp(5)).Layout(gtx, func() {
+							gtx.Constraints.Width.Min = 200
+							gtx.Constraints.Height.Min = 60
+
+							theme.Button(hnames[i]).Layout(gtx, &harmonics[h])
+						})
 					})
-				})
 
-                                if hpress >= 0 {
-                                    kk["h"] = hpress
-                                } else {
-                                    delete(kk, "h")
-                                }
-			},
+					if hpress >= 0 {
+						kk["h"] = hpress
+					} else {
+						delete(kk, "h")
+					}
+				}),
 
-				func() {
+				layout.Rigid(func() {
 					layout.UniformInset(unit.Dp(30)).Layout(gtx, func() {})
-				},
+				}),
 
-				func() {
-					flayout.Format(gtx, "vflex(r(inset(8dp, _)), r(inset(8dp, _)), r(inset(8dp, _)))",
-						func() {
-							if valves[0].Pressed(gtx) {
-                                                            kk["1"] = 1
-							} else {
-                                                            delete(kk, "1")
-                                                        }
-							theme.IconButton(iconValves[2]).Layout(gtx, valves[2])
-						},
-						func() {
-							if valves[1].Pressed(gtx) {
-                                                            kk["2"] = 2
-							} else {
-                                                            delete(kk, "2")
-                                                        }
-							theme.IconButton(iconValves[1]).Layout(gtx, valves[1])
-						},
-						func() {
-							if valves[2].Pressed(gtx) {
-                                                            kk["3"] = 3
-							} else {
-                                                            delete(kk, "3")
-                                                        }
-							theme.IconButton(iconValves[0]).Layout(gtx, valves[0])
-						},
+				layout.Rigid(func() {
+					layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+						layout.Rigid(func() {
+							layout.UniformInset(unit.Dp(5)).Layout(gtx, func() {
+
+								if valves[0].Pressed(gtx) {
+									kk["1"] = 1
+								} else {
+									delete(kk, "1")
+								}
+								theme.IconButton(iconValves[2]).Layout(gtx, valves[2])
+							})
+						}),
+						layout.Rigid(func() {
+							layout.UniformInset(unit.Dp(5)).Layout(gtx, func() {
+								if valves[1].Pressed(gtx) {
+									kk["2"] = 2
+								} else {
+									delete(kk, "2")
+								}
+								theme.IconButton(iconValves[1]).Layout(gtx, valves[1])
+							})
+						}),
+						layout.Rigid(func() {
+							layout.UniformInset(unit.Dp(5)).Layout(gtx, func() {
+								if valves[2].Pressed(gtx) {
+									kk["3"] = 3
+								} else {
+									delete(kk, "3")
+								}
+								theme.IconButton(iconValves[0]).Layout(gtx, valves[0])
+							})
+						}),
 					)
-				})
-		})
+				}))
+		}))
 }
 
 func main() {
