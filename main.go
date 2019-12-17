@@ -43,6 +43,7 @@ func (s *SelectStreamer) Select(k string) {
 	playing := s.stream != nil
 
 	if st, ok := s.notes[k]; ok {
+		//log.Println("select", k)
 		s.stream = st
 
 		if playing {
@@ -51,6 +52,7 @@ func (s *SelectStreamer) Select(k string) {
 			s.stream.Seek(0)
 		}
 	} else {
+		//log.Println("unselect", k)
 		s.stream = nil
 	}
 }
@@ -121,28 +123,32 @@ var (
 		"42": &EmbeddedStream{buf: notes_audio["17-E 5"]}, // F#5
 		"40": &EmbeddedStream{buf: notes_audio["18-F 5"]}, // G5
 
-		// 5th harmonics (C6)
-		"523": &EmbeddedStream{buf: notes_audio["19-F+5"]}, // G#5
-		"512": &EmbeddedStream{buf: notes_audio["20-G 5"]}, // A5
-		"51":  &EmbeddedStream{buf: notes_audio["21-G+5"]}, // Bb5
-		"52":  &EmbeddedStream{buf: notes_audio["22-A 5"]}, // B5
-		"50":  &EmbeddedStream{buf: notes_audio["23-A+5"]}, // C6
+		// 5th harmonics (Bb5)
+		"51": &EmbeddedStream{buf: notes_audio["19-F+5"]}, // G#5
+		"52": &EmbeddedStream{buf: notes_audio["20-G 5"]}, // A5
+		"50": &EmbeddedStream{buf: notes_audio["21-G+5"]}, // Bb5
 
-		// 6th harmonics (E6)
-		"612": &EmbeddedStream{buf: notes_audio["24-B 5"]}, // C#6
-		"61":  &EmbeddedStream{buf: notes_audio["25-C 6"]}, // D6
-		"62":  &EmbeddedStream{buf: notes_audio["26-C+6"]}, // Eb6
-		"60":  &EmbeddedStream{buf: notes_audio["27-D 6"]}, // E6
+		// 6th harmonics (C6)
+		"62": &EmbeddedStream{buf: notes_audio["22-A 5"]}, // B5
+		"60": &EmbeddedStream{buf: notes_audio["23-A+5"]}, // C6
 
-		// 7th harmonics
-		"71": &EmbeddedStream{buf: notes_audio["28-D+6"]}, // F6
+		// 7th harmonics (D6)
+		"72": &EmbeddedStream{buf: notes_audio["24-B 5"]}, // C#6
+		"70": &EmbeddedStream{buf: notes_audio["25-C 6"]}, // D6
+
+		// 8th harmonics (E6)
+		"82": &EmbeddedStream{buf: notes_audio["26-C+6"]}, // Eb6
+		"80": &EmbeddedStream{buf: notes_audio["27-D 6"]}, // E6
+
+		// 9th harmonics (F6)
+		"90": &EmbeddedStream{buf: notes_audio["28-D+6"]}, // F6
 	}
 
 	title material.Label
 
 	blist = layout.List{Axis: layout.Vertical}
 
-	harmonics = [7]widget.Button{}
+	harmonics = [10]widget.Button{}
 
 	iconValves [3]*material.Icon
 	valves     = []*widget.Button{
@@ -151,8 +157,11 @@ var (
 		new(widget.Button)}
 
 	hnames = []string{
+		"F6",
 		"E6",
+		"D6",
 		"C6",
+		"Bb5",
 		"G5",
 		"E5",
 		"C5",
@@ -172,8 +181,8 @@ func render(gtx *layout.Context, theme *material.Theme, kk map[string]int) {
 				layout.Rigid(func() {
 					hpress := -1
 
-					blist.Layout(gtx, 7, func(i int) {
-						h := 6 - i
+					blist.Layout(gtx, 10, func(i int) {
+						h := 9 - i
 
 						if harmonics[h].Pressed(gtx) {
 							hpress = h
@@ -271,7 +280,7 @@ func main() {
 		title.Alignment = text.Middle
 
 		w := app.NewWindow(
-			app.Size(unit.Dp(250), unit.Dp(450)),
+			app.Size(unit.Dp(250), unit.Dp(600)),
 			app.Title("Trumpet Simulator"))
 		gtx := layout.NewContext(w.Queue())
 
@@ -295,6 +304,7 @@ func main() {
 				n = n*10 + v
 			}
 
+			//log.Printf("processKeys %v %v", h, n)
 			return strconv.Itoa(h) + strconv.Itoa(n)
 		}
 
@@ -324,12 +334,8 @@ func main() {
 
 			case key.Event:
 				switch e.Name {
-				case "`", "1", "2", "3", "4", "5", "6":
-					n := int(e.Name[0] - '0')
-					if n > 10 {
-						n = 0
-					}
-
+				case "`", "1", "2", "3", "4", "5", "6", "7", "8", "9":
+					n, _ := strconv.Atoi(e.Name)
 					kk["h"] = n
 
 				case "0":
@@ -364,7 +370,7 @@ func main() {
 
 			case key.UpEvent:
 				switch e.Name {
-				case "`", "1", "2", "3", "4", "5", "6":
+				case "`", "1", "2", "3", "4", "5", "6", "7", "8", "9":
 					delete(kk, "h")
 				case "0":
 					delete(kk, "1")
