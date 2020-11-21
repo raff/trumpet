@@ -1,9 +1,11 @@
 package main
 
 import (
+	"image"
 	"image/color"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/faiface/beep"
@@ -11,14 +13,14 @@ import (
 	"github.com/faiface/beep/speaker"
 
 	"gioui.org/app"
+	"gioui.org/font/gofont"
 	"gioui.org/io/key"
 	"gioui.org/io/system"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
-
-	"gioui.org/font/gofont"
 	"gioui.org/widget/material"
 
 	"golang.org/x/exp/shiny/materialdesign/icons"
@@ -39,7 +41,7 @@ func SelectStream(notes map[string]beep.StreamSeeker, format beep.Format, start 
 	}
 }
 
-func (s *SelectStreamer) Select(k string) {
+func (s *SelectStreamer) Select(k string) bool {
 	playing := s.stream != nil
 
 	if st, ok := s.notes[k]; ok {
@@ -51,10 +53,13 @@ func (s *SelectStreamer) Select(k string) {
 		} else {
 			s.stream.Seek(0)
 		}
-	} else {
-		//log.Println("unselect", k)
-		s.stream = nil
+
+		return true
 	}
+
+	//log.Println("unselect", k)
+	s.stream = nil
+	return false
 }
 
 func (s *SelectStreamer) Stream(samples [][2]float64) (n int, ok bool) {
@@ -144,55 +149,61 @@ var (
 		"90": &EmbeddedStream{buf: notes_audio["28-D+6"]}, // F6
 	}
 
-	title material.Label
-
 	blist = layout.List{Axis: layout.Vertical}
 
-	harmonics = [10]widget.Button{}
+	harmonics = [10]widget.Clickable{}
+	valves    = [3]widget.Clickable{}
 
-	iconValves [3]*material.Icon
-	valves     = []*widget.Button{
-		new(widget.Button),
-		new(widget.Button),
-		new(widget.Button)}
+	iconValves [3]*widget.Icon
 
-	hnames = []string{
-		"F6",
-		"E6",
-		"D6",
-		"C6",
-		"Bb5",
-		"G5",
-		"E5",
-		"C5",
-		"G4",
-		"C4",
+	hinfo = []struct {
+		name, valves string
+	}{
+		{"F6", "123"}, // 0
+		{"E6", "123"}, // 1
+		{"D6", "123"}, // 2
+		{"C6", "12"},  // 3
+		{"Bb5", "12"}, // 4
+		{"G5", "12"},  // 5
+		{"E5", "2"},   // 6
+		{"C5", "2"},   // 7
+		{"G4", "2"},   // 8
+		{"C4", ""},    // 9
 	}
 )
 
-func render(gtx *layout.Context, theme *material.Theme, kk map[string]int) {
+func isPressed(c widget.Clickable) bool {
+	h := c.History()
+	l := len(h)
+	return l > 0 && h[l-1].End.IsZero()
+}
+
+func dimensions(w, h int) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		return layout.Dimensions{Size: image.Point{X: w, Y: h}}
+	}
+}
+
+func render(gtx layout.Context, theme *material.Theme, title layout.FlexChild, kk map[string]int) {
 	layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		layout.Rigid(func() {
-			title.Layout(gtx)
-		}),
+		title,
 
-		layout.Rigid(func() {
-			layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
-				layout.Rigid(func() {
-					hpress := -1
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			hpress := -1
 
-					blist.Layout(gtx, 10, func(i int) {
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					ret := blist.Layout(gtx, 10, func(gtx layout.Context, i int) layout.Dimensions {
 						h := 9 - i
 
-						if harmonics[h].Pressed(gtx) {
+						if isPressed(harmonics[h]) { // still pressed
 							hpress = h
 						}
 
-						layout.UniformInset(unit.Dp(5)).Layout(gtx, func() {
-							gtx.Constraints.Width.Min = 200
-							gtx.Constraints.Height.Min = 60
+						return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							gtx.Constraints = layout.Exact(image.Point{X: 200, Y: 60})
 
-							theme.Button(hnames[i]).Layout(gtx, &harmonics[h])
+							return material.Button(theme, &harmonics[h], hinfo[h].name).Layout(gtx)
 						})
 					})
 
@@ -201,43 +212,62 @@ func render(gtx *layout.Context, theme *material.Theme, kk map[string]int) {
 					} else {
 						delete(kk, "h")
 					}
+
+					return ret
 				}),
 
-				layout.Rigid(func() {
-					layout.UniformInset(unit.Dp(30)).Layout(gtx, func() {})
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.UniformInset(unit.Dp(30)).Layout(gtx, dimensions(0, 0))
 				}),
 
-				layout.Rigid(func() {
-					layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-						layout.Rigid(func() {
-							layout.UniformInset(unit.Dp(5)).Layout(gtx, func() {
-
-								if valves[0].Pressed(gtx) {
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								if isPressed(valves[0]) {
 									kk["1"] = 1
 								} else {
 									delete(kk, "1")
 								}
-								theme.IconButton(iconValves[2]).Layout(gtx, valves[2])
+
+								if hpress >= 0 && !strings.Contains(hinfo[hpress].valves, "1") {
+									gtx.Disabled()
+								}
+
+								return material.IconButton(theme,
+									&valves[2], iconValves[2]).Layout(gtx)
 							})
 						}),
-						layout.Rigid(func() {
-							layout.UniformInset(unit.Dp(5)).Layout(gtx, func() {
-								if valves[1].Pressed(gtx) {
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								if isPressed(valves[1]) {
 									kk["2"] = 2
 								} else {
 									delete(kk, "2")
 								}
-								theme.IconButton(iconValves[1]).Layout(gtx, valves[1])
+
+								if hpress >= 0 && !strings.Contains(hinfo[hpress].valves, "2") {
+									gtx.Disabled()
+								}
+
+								return material.IconButton(theme,
+									&valves[1], iconValves[1]).Layout(gtx)
 							})
 						}),
-						layout.Rigid(func() {
-							layout.UniformInset(unit.Dp(5)).Layout(gtx, func() {
-								if valves[2].Pressed(gtx) {
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								if isPressed(valves[2]) {
 									kk["3"] = 3
 								} else {
 									delete(kk, "3")
 								}
-								theme.IconButton(iconValves[0]).Layout(gtx, valves[0])
+
+								if hpress >= 0 && !strings.Contains(hinfo[hpress].valves, "3") {
+									gtx.Disabled()
+								}
+
+								return material.IconButton(theme,
+									&valves[0], iconValves[0]).Layout(gtx)
 							})
 						}),
 					)
@@ -246,21 +276,19 @@ func render(gtx *layout.Context, theme *material.Theme, kk map[string]int) {
 }
 
 func main() {
-	gofont.Register()
-
-	if ic, err := material.NewIcon(icons.ImageLooksOne); err != nil {
+	if ic, err := widget.NewIcon(icons.ImageLooksOne); err != nil {
 		log.Fatal(err)
 	} else {
 		iconValves[0] = ic
 	}
 
-	if ic, err := material.NewIcon(icons.ImageLooksTwo); err != nil {
+	if ic, err := widget.NewIcon(icons.ImageLooksTwo); err != nil {
 		log.Fatal(err)
 	} else {
 		iconValves[1] = ic
 	}
 
-	if ic, err := material.NewIcon(icons.ImageLooks3); err != nil {
+	if ic, err := widget.NewIcon(icons.ImageLooks3); err != nil {
 		log.Fatal(err)
 	} else {
 		iconValves[2] = ic
@@ -273,16 +301,20 @@ func main() {
 	go speaker.Play(volume)
 
 	go func() {
-		theme := material.NewTheme()
+		theme := material.NewTheme(gofont.Collection())
 
-		title = theme.H3("Trumpet simulator")
-		title.Color = color.RGBA{127, 0, 0, 255}
-		title.Alignment = text.Middle
+		title := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			t := material.H3(theme, "Trumpet simulator")
+			t.Color = color.NRGBA{127, 0, 0, 255}
+			t.Alignment = text.Middle
+			return t.Layout(gtx)
+		})
+
+		var ops op.Ops
 
 		w := app.NewWindow(
 			app.Size(unit.Dp(250), unit.Dp(600)),
 			app.Title("Trumpet Simulator"))
-		gtx := layout.NewContext(w.Queue())
 
 		kk := map[string]int{}
 
@@ -319,8 +351,8 @@ func main() {
 				}
 				return
 			case system.FrameEvent:
-				gtx.Reset(e.Config, e.Size)
-				render(gtx, theme, kk)
+				gtx := layout.NewContext(&ops, e)
+				render(gtx, theme, title, kk)
 				e.Frame(gtx.Ops)
 
 				k := processKeys()
@@ -333,58 +365,53 @@ func main() {
 				}
 
 			case key.Event:
-				switch e.Name {
-				case "`", "1", "2", "3", "4", "5", "6", "7", "8", "9":
-					n, _ := strconv.Atoi(e.Name)
-					kk["h"] = n
+				if e.State == key.Press {
+					switch e.Name {
+					case "`", "1", "2", "3", "4", "5", "6", "7", "8", "9":
+						n, _ := strconv.Atoi(e.Name)
+						kk["h"] = n
 
-				case "0":
-					kk["1"] = 1
-				case "-":
-					kk["2"] = 2
-				case "=":
-					kk["3"] = 3
+					case "0":
+						kk["1"] = 1
+					case "-":
+						kk["2"] = 2
+					case "=":
+						kk["3"] = 3
 
-				case "[":
-					speaker.Lock()
-					volume.Volume -= 0.1
-					speaker.Unlock()
+					case "[":
+						speaker.Lock()
+						volume.Volume -= 0.1
+						speaker.Unlock()
 
-				case "]":
-					speaker.Lock()
-					volume.Volume += 0.1
-					speaker.Unlock()
+					case "]":
+						speaker.Lock()
+						volume.Volume += 0.1
+						speaker.Unlock()
 
-				default:
-					break
+					default:
+						log.Println("Key", e)
+						break
+					}
+				} else {
+					switch e.Name {
+					case "`", "1", "2", "3", "4", "5", "6", "7", "8", "9":
+						delete(kk, "h")
+					case "0":
+						delete(kk, "1")
+					case "-":
+						delete(kk, "2")
+					case "=":
+						delete(kk, "3")
+					default:
+						log.Println("Key", e)
+						break
+					}
 				}
 
 				k := processKeys()
 				if k != prev {
 					prev = k
 
-					speaker.Lock()
-					stream.Select(k)
-					speaker.Unlock()
-				}
-
-			case key.UpEvent:
-				switch e.Name {
-				case "`", "1", "2", "3", "4", "5", "6", "7", "8", "9":
-					delete(kk, "h")
-				case "0":
-					delete(kk, "1")
-				case "-":
-					delete(kk, "2")
-				case "=":
-					delete(kk, "3")
-				default:
-					break
-				}
-
-				k := processKeys()
-				if k != prev {
-					prev = k
 					speaker.Lock()
 					stream.Select(k)
 					speaker.Unlock()
