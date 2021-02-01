@@ -194,14 +194,14 @@ func render(gtx layout.Context, theme *material.Theme, title layout.FlexChild, k
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.End}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					ret := blist.Layout(gtx, 10, func(gtx layout.Context, i int) layout.Dimensions {
-						h := 9 - i
+						h := i // 9 - i
 
 						if isPressed(harmonics[h]) { // still pressed
 							hpress = h
 						}
 
 						return layout.UniformInset(unit.Dp(5)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							gtx.Constraints = layout.Exact(image.Point{X: 200, Y: 60})
+							gtx.Constraints = layout.Exact(image.Point{X: 200, Y: 80})
 
 							return material.Button(theme, &harmonics[h], hinfo[h].name).Layout(gtx)
 						})
